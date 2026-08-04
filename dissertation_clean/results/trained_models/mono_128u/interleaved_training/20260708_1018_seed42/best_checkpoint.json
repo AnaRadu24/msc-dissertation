@@ -1,0 +1,8 @@
+{
+  "best_epoch": 19010,
+  "best_val_loss": 0.0002720863849390298,
+  "best_val_terminal_error_cm": 0.15393374860286713,
+  "metric": "continuous_spatial_loss_unperturbed",
+  "validation_seed": 999,
+  "validation_batch_size": 64
+}

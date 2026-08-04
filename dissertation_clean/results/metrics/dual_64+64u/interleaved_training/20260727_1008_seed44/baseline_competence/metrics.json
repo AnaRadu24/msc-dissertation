@@ -1,0 +1,40 @@
+{
+  "model": "dual_64+64u",
+  "regime": "interleaved",
+  "run_id": "20260727_1008_seed44",
+  "seed": 44,
+  "architecture": "dual",
+  "hidden_units": 128,
+  "variant": "baseline_competence",
+  "description": "intact model, no intervention",
+  "config_overrides": {},
+  "task": "reach",
+  "profile": "competence",
+  "duration_s": 1.0,
+  "batch_size": 256,
+  "rollout_seed": 42,
+  "n_trials": 256,
+  "metrics": {
+    "terminal_error_cm": {
+      "mean": 0.2802913636759141,
+      "std": 0.07922848815213802,
+      "n": 256
+    },
+    "peak_speed_cms": {
+      "mean": 68.39289135640186,
+      "std": 9.859706895916784,
+      "n": 256
+    },
+    "path_efficiency": {
+      "mean": 0.9453138816223083,
+      "std": 0.03738851156398015,
+      "n": 256
+    },
+    "muscle_effort": {
+      "mean": 31.758209407609684,
+      "std": 1.8694067662108727,
+      "n": 256
+    }
+  },
+  "schema": 1
+}

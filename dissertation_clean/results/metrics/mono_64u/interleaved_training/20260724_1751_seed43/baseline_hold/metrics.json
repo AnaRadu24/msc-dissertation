@@ -1,0 +1,35 @@
+{
+  "model": "mono_64u",
+  "regime": "interleaved",
+  "run_id": "20260724_1751_seed43",
+  "seed": 43,
+  "architecture": "mono",
+  "hidden_units": 64,
+  "variant": "baseline_hold",
+  "description": "intact model, no intervention",
+  "config_overrides": {},
+  "task": "reach",
+  "profile": "tremor",
+  "duration_s": 6.01,
+  "batch_size": 256,
+  "rollout_seed": 42,
+  "n_trials": 256,
+  "metrics": {
+    "hold_speed_rms_cms": {
+      "mean": 0.020224261915044943,
+      "std": 0.00841701382747228,
+      "n": 256
+    },
+    "freq_lateral_hz": {
+      "mean": 0.24277888446215132,
+      "std": 0.2097221181265316,
+      "n": 256
+    },
+    "freq_resolution_hz": {
+      "mean": 0.19920318725099598,
+      "std": 2.7755575615628914e-17,
+      "n": 256
+    }
+  },
+  "schema": 1
+}

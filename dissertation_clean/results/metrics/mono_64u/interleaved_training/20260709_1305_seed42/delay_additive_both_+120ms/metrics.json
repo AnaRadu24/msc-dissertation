@@ -1,0 +1,38 @@
+{
+  "model": "mono_64u",
+  "regime": "interleaved",
+  "run_id": "20260709_1305_seed42",
+  "seed": 42,
+  "architecture": "mono",
+  "hidden_units": 64,
+  "variant": "delay_additive_both_+120ms",
+  "description": "additive_both delay sweep at 120ms: +120 ms prop, +120 ms vision (weights frozen)",
+  "config_overrides": {
+    "_delay_add_prop_ms": 120.0,
+    "_delay_add_vision_ms": 120.0
+  },
+  "task": "reach",
+  "profile": "tremor",
+  "duration_s": 6.01,
+  "batch_size": 256,
+  "rollout_seed": 42,
+  "n_trials": 256,
+  "metrics": {
+    "hold_speed_rms_cms": {
+      "mean": 596.5507761719341,
+      "std": 149.57047027932612,
+      "n": 256
+    },
+    "freq_lateral_hz": {
+      "mean": 1.7523655378486054,
+      "std": 0.5491423548142854,
+      "n": 256
+    },
+    "freq_resolution_hz": {
+      "mean": 0.19920318725099598,
+      "std": 2.7755575615628914e-17,
+      "n": 256
+    }
+  },
+  "schema": 1
+}

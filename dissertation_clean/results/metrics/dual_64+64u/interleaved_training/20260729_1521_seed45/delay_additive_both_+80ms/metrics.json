@@ -1,0 +1,38 @@
+{
+  "model": "dual_64+64u",
+  "regime": "interleaved",
+  "run_id": "20260729_1521_seed45",
+  "seed": 45,
+  "architecture": "dual",
+  "hidden_units": 128,
+  "variant": "delay_additive_both_+80ms",
+  "description": "additive_both delay sweep at 80ms: +80 ms prop, +80 ms vision (weights frozen)",
+  "config_overrides": {
+    "_delay_add_prop_ms": 80.0,
+    "_delay_add_vision_ms": 80.0
+  },
+  "task": "reach",
+  "profile": "tremor",
+  "duration_s": 6.01,
+  "batch_size": 256,
+  "rollout_seed": 42,
+  "n_trials": 256,
+  "metrics": {
+    "hold_speed_rms_cms": {
+      "mean": 227.60867940805502,
+      "std": 116.20452935304709,
+      "n": 256
+    },
+    "freq_lateral_hz": {
+      "mean": 1.1376369521912348,
+      "std": 0.5509982438636151,
+      "n": 256
+    },
+    "freq_resolution_hz": {
+      "mean": 0.19920318725099598,
+      "std": 2.7755575615628914e-17,
+      "n": 256
+    }
+  },
+  "schema": 1
+}
