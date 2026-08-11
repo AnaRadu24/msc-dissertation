@@ -1,5 +1,6 @@
 """Analysers (Layer 2) — PURE maths. numpy/scipy only; never matplotlib, torch, or I/O.
 Each function takes a RolloutResult and returns per-trial arrays."""
+from .crescendo import deceleration_crescendo
 from .deviation import trajectory_deviation
 from .divergence import command_divergence, predicted_divergence_ms
 from .oscillation import (
@@ -18,6 +19,7 @@ __all__ = [
                           "OSC_RMS_THRESHOLD_CMS",
                           "analysers_for",
                           "command_divergence",
+                          "deceleration_crescendo",
                           "dominant_frequency_hz",
                           "hold_speed_rms_cms",
                           "intention_tremor_profile",

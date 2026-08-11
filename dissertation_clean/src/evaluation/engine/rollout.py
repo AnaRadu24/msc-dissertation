@@ -62,6 +62,7 @@ def _resolved_config(record_config: ExperimentConfig, intervention: Intervention
 
     add_prop = overrides.pop("_delay_add_prop_ms", 0.0)
     add_vision = overrides.pop("_delay_add_vision_ms", 0.0)
+    overrides.pop("_estimate_delay_ms", None)    # consumed by the rollout loop, not a config field
     if add_prop:
         overrides["proprioception_delay"] = float(record_config.proprioception_delay) + add_prop
     if add_vision:
@@ -129,6 +130,12 @@ def rollout(
     load_fn = intervention.endpoint_load_fn
     est_src = intervention.estimate_source
 
+    # 'delayed_estimate' staling: how many steps to buffer x̂ by (from the intervention's overrides)
+    est_delay_ms = intervention.config_overrides.get("_estimate_delay_ms", 0.0)
+    est_delay_steps = int(round(est_delay_ms / (env.dt * 1000.0)))   # env.dt is in seconds
+    est_buffer = []          # holds past intact x̂ for the 'delayed_estimate' source
+    const_estimate = None    # frozen first in-distribution x̂ for 'constant_predictor_output'
+
     fingertip, hidden, commands = [], [], []
     est_list, pred_hidden, prop_list = [], [], []
 
@@ -169,10 +176,19 @@ def rollout(
                 state_estimate = est_tf(state_estimate)                          # predictive-pathway lesion
                 if est_src == "zero":
                     state_estimate = th.zeros_like(state_estimate)
-                elif est_src == "delayed_feedback":
-                    state_estimate = obs[:, g + v:g + v + p]
+                elif est_src == "relayed_feedback":
+                    state_estimate = obs[:, g + v:g + v + p]               # raw delayed proprioception
                 elif est_src == "instant_feedback":
-                    state_estimate = env.get_proprioception()
+                    state_estimate = env.get_proprioception()             # true undelayed y(t)
+                elif est_src == "delayed_estimate":
+                    est_buffer.append(state_estimate)
+                    if len(est_buffer) > est_delay_steps:
+                        state_estimate = est_buffer[-(est_delay_steps + 1)]  # good x̂ from N steps ago
+                    # else: not enough history yet → keep current (start-of-episode transient)
+                elif est_src == "constant_predictor_output":
+                    if const_estimate is None:
+                        const_estimate = state_estimate.detach().clone()  # freeze first in-dist x̂ (rest posture)
+                    state_estimate = const_estimate
                 est_list.append(state_estimate)
                 pred_hidden.append(h_pred.squeeze(0))
                 prop_list.append(obs[:, g + v:g + v + p])
