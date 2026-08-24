@@ -34,6 +34,24 @@ ARCH_COLORS = {
 QUALITATIVE = [OKABE_ITO[k] for k in
                ("blue", "vermillion", "bluish_green", "orange", "purple", "sky_blue", "black")]
 
+# --- Physical sizing --------------------------------------------------------
+# Thesis text block width, in inches. Measured by putting ``\the\textwidth`` in
+# the document, compiling, and dividing the printed pt value by 72.27 (TeX
+# points per inch). ~5.9 in is typical for infthesis on A4.
+TEXT_WIDTH_IN = 5.9
+
+
+def figure_size(fraction: float = 1.0, aspect: float = 0.618) -> tuple[float, float]:
+    """Figsize for a figure meant to occupy ``fraction`` of the text width.
+
+    Author at the display width, then include with
+    ``\\includegraphics[width=<fraction>\\textwidth]`` (or ``width=\\linewidth``).
+    With a 1:1 match the LaTeX scale factor is 1, so the point sizes below are
+    the point sizes on the page. ``aspect`` is height/width (default: golden ratio).
+    """
+    width = TEXT_WIDTH_IN * fraction
+    return (width, width * aspect)
+
 
 def arch_color(architecture: str) -> str:
     """Colour for 'dual' / 'mono'; falls back to the first qualitative colour."""
@@ -43,18 +61,19 @@ def arch_color(architecture: str) -> str:
 def apply_style() -> None:
     """Set global rcParams for publication-quality figures. Idempotent."""
     mpl.rcParams.update({
-        # fonts
+        # fonts — sized to stay legible after LaTeX resizing. When authored at
+        # the display width via figure_size(), these are the on-page point sizes.
         "font.family": "sans-serif",
-        "font.size": 11,
-        "axes.titlesize": 12,
-        "axes.labelsize": 11,
-        "xtick.labelsize": 10,
-        "ytick.labelsize": 10,
-        "legend.fontsize": 9,
-        "figure.titlesize": 13,
-        # lines & markers
-        "lines.linewidth": 1.8,
-        "lines.markersize": 5,
+        "font.size": 13,
+        "axes.titlesize": 14,
+        "axes.labelsize": 13,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12,
+        "legend.fontsize": 11,
+        "figure.titlesize": 15,
+        # lines & markers — bumped so thin strokes don't vanish when scaled down
+        "lines.linewidth": 2.0,
+        "lines.markersize": 6,
         "axes.prop_cycle": cycler(color=QUALITATIVE),
         # axes: clean, no top/right spine, light y-grid only
         "axes.spines.top": False,
@@ -65,7 +84,8 @@ def apply_style() -> None:
         "grid.linewidth": 0.6,
         # legend
         "legend.frameon": False,
-        # figure & saving (PNG is the deliverable; 300 dpi is print-quality)
+        # figure & saving. PDF is the LaTeX deliverable (vector, crisp at any
+        # scale); PNG is kept for quick preview. 300 dpi print-quality for PNG.
         "figure.dpi": 110,
         "savefig.dpi": 300,
         "savefig.bbox": "tight",
@@ -73,18 +93,21 @@ def apply_style() -> None:
     })
 
 
-def save_figure(fig: plt.Figure, path: str | Path, *, formats: Sequence[str] = ("png",),
+def save_figure(fig: plt.Figure, path: str | Path, *,
+                formats: Sequence[str] = ("pdf", "png"),
                 close: bool = True) -> Path:
-    """Save ``fig`` to ``path`` (its stem) in each requested format; returns the PNG path.
+    """Save ``fig`` to ``path`` (its stem) in each requested format.
 
-    ``formats`` defaults to PNG only (the dissertation deliverable); pass ('png', 'pdf')
-    for a vector copy. The parent directory is created if needed.
+    Writes a vector ``.pdf`` (include this one in LaTeX) and a ``.png`` preview by
+    default. Returns the PNG path when PNG is requested — preserving the previous
+    return contract for callers that display the preview — otherwise the first
+    written path. The parent directory is created if needed.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    out_png = path.with_suffix(".png")
-    for fmt in formats:
-        fig.savefig(path.with_suffix(f".{fmt}"))
+    written = [path.with_suffix(f".{fmt}") for fmt in formats]
+    for out in written:
+        fig.savefig(out)
     if close:
         plt.close(fig)
-    return out_png
+    return path.with_suffix(".png") if "png" in formats else written[0]

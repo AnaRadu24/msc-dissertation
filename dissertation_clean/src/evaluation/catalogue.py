@@ -97,7 +97,7 @@ class ModelRecord:
 
 @dataclass(frozen=True)
 class ModelGroup:
-    """A set of seeds of ONE trained configuration — what you aggregate over."""
+    """A set of seeds of ONE trained configuration — the unit that gets aggregated over."""
     label: str
     architecture: str
     hidden_units: int
@@ -133,7 +133,7 @@ class Catalogue:
         if not root.is_dir():
             raise CatalogueError(
                 f"trained_models directory not found at:\n  {root}\n"
-                f"Paths root resolved to {self.paths.root}. If you are running from a "
+                f"Paths root resolved to {self.paths.root}. When running from a "
                 f"notebooks/ kernel, point Paths at the project root, e.g. "
                 f"Paths(Path.cwd().parent).")
 
@@ -151,13 +151,8 @@ class Catalogue:
         
         # Populate the catalogue records
         for parts, cfg_path in good:
-            # 1. Load the configuration (adjust the load method to match your config.py)
             config = ExperimentConfig.load_from_json(cfg_path)
-            
-            # 2. Parse the folder structure into a RunKey
             key = RunKey(model=parts[0], regime=parts[1], run_id=parts[2])
-            
-            # 3. Instantiate, validate, and store the record
             record = ModelRecord(key=key, config=config)
             self._validate(record)
             self.records.append(record)

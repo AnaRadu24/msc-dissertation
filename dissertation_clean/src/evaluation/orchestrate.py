@@ -15,10 +15,24 @@ from typing import Dict, List
 
 import numpy as np
 
+from .analyzers.oscillation import hold_speed_rms_cms
+from .analyzers.reach import terminal_error_cm
 from .analyzers.sets import analysers_for
 from .catalogue import ModelGroup, ModelRecord
-from .engine import rollout
-from .engine.types import VariantSpec
+from .engine import obs_layout, rollout
+from .engine.types import IDENTITY, Intervention, VariantSpec
+from .figures.ablation import (
+    AblationCascade,
+    AblationSeries,
+    LoopSpeed,
+    LoopSpeedCausal,
+    LoopSpeedRobust,
+)
+from .figures.delay_plane import DelayPlane, delay_plane_figure
+from .figures.divergence import DivergencePoint, DivergenceTrace
+from .figures.hold_dynamics import plot_reach_2d_by_time
+from .figures.phaseplane_composite import plot_phaseplane_composite
+from .manipulators.ablation import ablate
 from .paths import Paths
 from .settings import DEFAULT, Settings
 from .store import MetricAtom
@@ -84,7 +98,7 @@ def run_variant(record: ModelRecord, paths: Paths, spec: VariantSpec,
 
 def run_group(group: ModelGroup, paths: Paths, spec: VariantSpec,
               settings: Settings = DEFAULT, *, save: bool = True) -> List[MetricAtom]:
-    """Run one spec across every seed of a model group (what you aggregate over)."""
+    """Run one spec across every seed of a model group (the unit that gets aggregated over)."""
     return [run_variant(g, paths, spec, settings, save=save) for g in group.records]
 
 
@@ -93,25 +107,7 @@ def run_specs(record: ModelRecord, paths: Paths, specs: List[VariantSpec],
     """Run several specs on one model (e.g. the baseline's competence + hold measurements)."""
     return [run_variant(record, paths, spec, settings, save=save) for spec in specs]
 
-# orchestrate.py  (or a notebook cell) — the ONE place that rolls out for R1 ablation.
-# Rolls each (model, condition) out once; reads BOTH metrics off that single rollout.
-import numpy as np
-
-from .analyzers.oscillation import (
-    hold_speed_rms_cms,  # was: hold_speed_rms  (does not exist)
-)
-from .analyzers.reach import terminal_error_cm
-from .engine import obs_layout, rollout
-from .engine.types import IDENTITY
-from .figures.ablation import (
-    AblationCascade,
-    AblationSeries,
-    LoopSpeed,
-    LoopSpeedCausal,
-    LoopSpeedRobust,
-)
-from .manipulators.ablation import ablate
-
+# R1 ablation: rolls each (model, condition) out once; reads BOTH metrics off that single rollout.
 _KW   = dict(task="reach", duration_s=1.0, batch_size=256, seed=42)
 _HOLD_START = 0.6      # hold window is [0.6 s, rollout end]; end is implicit in the analyser
 
@@ -151,7 +147,7 @@ def build_loopspeed(cat, paths, causal_records):
         tp.append(te_p); tv.append(te_v); hp.append(rms_p); hv.append(rms_v)
     robust = LoopSpeedRobust(tuple(g.seeds), np.array(tp), np.array(tv),
                              np.array(hp), np.array(hv))
-    # causal: single seed per delay assignment (you supply the 3 records, in order)
+    # causal: single seed per delay assignment (the 3 records are supplied in order)
     order = ("baseline", "matched", "swapped")
     tp, tv, hp, hv = [], [], [], []
     for cfg in order:
@@ -163,15 +159,6 @@ def build_loopspeed(cat, paths, causal_records):
     causal = LoopSpeedCausal(order, np.array(tp), np.array(tv),
                              np.array(hp), np.array(hv))
     return LoopSpeed(robust, causal)
-
-# orchestrate.py
-import numpy as np
-from .engine import rollout
-from .engine.types import Intervention
-from .analyzers.reach import terminal_error_cm
-from .figures.delay_plane import DelayPlane, delay_plane_figure
-from .figures.hold_dynamics import plot_reach_2d_by_time
-from .figures.phaseplane_composite import plot_phaseplane_composite
 
 def _inject(prop_ms, vision_ms):
     """Independent additive delay per channel via the engine's _delay_add_* sentinels.
@@ -221,50 +208,43 @@ def delay_plane_panels(group, paths, pairs, *, duration_s=6.0, seed_for_panels=4
                                   title=f"{group.architecture} · +{p} ms prop, +{v} ms vision")
     return figs
 
-from .engine.types import IDENTITY
-from .figures.divergence import DivergencePoint, DivergenceTrace
-from .manipulators.ablation import ablate
-
 
 def build_divergence(cat, paths, causal_records):
     """Computes the exact millisecond the network issues a corrective command.
-    
-    Method: Rolls out the identical network, seed, and targets in both an unperturbed 
-    environment (reach) and a perturbed one (curl). The muscle excitations will remain 
-    bit-identical until the exact moment the sensory feedback informing the network of 
+
+    Method: rolls out the identical network, seed, and targets in both an unperturbed
+    environment (reach) and a perturbed one (curl). The muscle excitations remain
+    bit-identical until the exact moment the sensory feedback informing the network of
     the perturbation clears the delay lines.
     """
     points = []
     trace_out = None
-    
-    # We only need a short rollout (1.0s) because divergence happens early in the reach
+
+    # A short rollout (1.0 s) suffices because divergence happens early in the reach
     _KW = dict(duration_s=1.0, batch_size=256, seed=42)
 
     for label, rec in causal_records.items():
         base_p = rec.config.proprioception_delay
         base_v = rec.config.vision_delay
-        
-        # Calculate the theoretical minimum available delay for each ablation condition
+
+        # Theoretical minimum available delay for each ablation condition
         conditions = {
             "intact": min(base_p, base_v),
             "vision": base_p,  # Vision severed -> forced to wait for slower proprioception
             "prop": base_v,    # Proprioception severed -> forced to wait for slower vision
             "both": np.inf     # Totally severed -> open loop (should never diverge)
         }
-        
+
         layout = obs_layout(rec)
-        
+
         for ab_name, predicted_delay in conditions.items():
             intervention = IDENTITY if ab_name == "intact" else ablate(ab_name, layout)
-            
-            # 1. Run unperturbed baseline
+
             unpert = rollout(rec, paths, task="reach", intervention=intervention, **_KW)
-            
-            # 2. Run perturbed condition
             pert = rollout(rec, paths, task="curl", intervention=intervention, **_KW)
-            
-            # 3. Find the exact millisecond the muscle commands diverge
-            # We look for a difference > 1e-5 to account for minor floating-point noise
+
+            # Millisecond at which the muscle commands diverge; a difference > 1e-5 filters
+            # out floating-point noise
             diff = np.abs(pert.motor_commands - unpert.motor_commands)
             max_diff_across_batch = diff.max(axis=(1, 2))  # Collapse batch and muscles -> (T,)
             
@@ -292,7 +272,7 @@ def build_divergence(cat, paths, causal_records):
                     predicted_ms=predicted_delay,
                     measured_ms=measured_ms,
                     max_abs_delta=max_diff_across_batch,
-                    muscle_labels=["SF", "SE", "BF", "BE", "EF", "EE"]     # <-- Added missing argument!
+                    muscle_labels=["SF", "SE", "BF", "BE", "EF", "EE"]
                 )
 
     return points, trace_out

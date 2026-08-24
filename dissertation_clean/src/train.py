@@ -81,7 +81,7 @@ def construct_architecture(config: ExperimentConfig, env: mn.environment.Environ
         config.task_receives_feedback = True
 
     goal_dim = env.obs_dims["goal"]     # Cartesian x and y coordinates of the static target position
-    vision_dim = env.obs_dims["vision"] # Cartesian x and y coordinates of the endpoint (coresponding to effector.states["fingertip"] in MotorNet)
+    vision_dim = env.obs_dims["vision"] # Cartesian x and y coordinates of the endpoint (corresponding to effector.states["fingertip"] in MotorNet)
     prop_dim = env.obs_dims["prop"]     # Proprioceptive feedback consists of muscle lengths and muscle lengthening velocities for each muscle
     # The Predictive Network outputs a de-delayed estimate of the PROPRIOCEPTIVE feedback (muscle length + velocity) — the same 12-D signal the delayed feedback carries, but for the current timestep. This is the OFC state-estimator role: estimate the sensory consequence, delay-compensated; it excludes the large / spiky force terms that destabilised the earlier loss.
     estimate_dim = prop_dim  # = env.n_muscles * 2, the observation-space proprioception
@@ -130,14 +130,14 @@ def compute_spatial_loss(loss_type: str, fingertip_traj: th.Tensor, goal_pos: th
  
     temporal_mode:
     * 'terminal'   — penalise only the FINAL timestep (the original baseline objective)
-    * 'continuous' — integrate the position error over the WHOLE trajectory (the OFC state-error objective) to incentivise movement initiation immediateley (as opposed to sudden movement initiation towards the end of the episode)      
+    * 'continuous' — integrate the position error over the WHOLE trajectory (the OFC state-error objective) to incentivise early movement initiation (as opposed to sudden movement initiation towards the end of the episode)
  
     loss_type (the per-step penalty on the dead-zoned distance):
     * 'huber' - quadratic near the target (less than delta), linear for large transient errors. Prevents gradient explosions during violent elastic recoils (whiplash) whilst preserving a convex mathematical landscape for fine sub-centimetre precision near the target.
     * 'mae'   — L1. Constant linear penalty regardless of error magnitude.  However, it is highly vulnerable to endless oscillation around the target coordinate, as the gradient magnitude does not smoothly decay to zero as the fingertip approaches the goal, unless a dead-zone is used.
     * 'mse'   — L2 (squared distance). Heavier weighting of large early errors. Best suited for rigid effectors or unperturbed kinematics where trajectory errors remain small and normally distributed. It is highly vulnerable to causing catastrophic forgetting if applied to compliant tendons, as physical outliers generate explosive gradients.\n
  
-    target_radius: dead-zone (m). Following the MotorNet implementation (Codol et al. 2024; Codol & Perich), a non-zero radius gives an explicit tolerance which flattens the gradient lanscape inside the radius to stabilise the arm and settle on the target without the gradient jumping around. Preferably used with 'mae' loss and set to 0 if using a 'huber' loss.
+    target_radius: dead-zone (m). Following the MotorNet implementation (Codol et al. 2024; Codol & Perich), a non-zero radius gives an explicit tolerance which flattens the gradient landscape inside the radius to stabilise the arm and settle on the target without the gradient jumping around. Preferably used with 'mae' loss and set to 0 if using a 'huber' loss.
  
     fingertip_traj: [B, T, 2]; goal_pos: [B, 2].
     """

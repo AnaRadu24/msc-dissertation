@@ -25,7 +25,8 @@ from ..engine.types import Intervention
 
 SOURCES = (
     "intact", "instant_feedback", "relayed_feedback",
-    "delayed_estimate", "zero", "constant_predictor_output",
+    "delayed_estimate", "constant_predictor_output",
+    "zero",
 )
 _DESC = {
     "intact":                    "predictor estimate x̂ (trained baseline)",

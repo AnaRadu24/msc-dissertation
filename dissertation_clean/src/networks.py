@@ -4,7 +4,10 @@ import torch.nn as nn
 
 class MotorRNN(nn.Module):
     """
-    RNN module class utilising a network with 1 layer of Gated Recurrent Units, to be extended by the Monolothic & Dual Networks (Task and Predictive Networks). The GRU is chosen for its gating mechanisms that help mitigate vanishing gradient issues, making it suitable for learning long-term dependencies in sequential data, which is crucial for our delayed feedback tasks. The class includes orthogonal weight initialisation to further stabilise training and memory retention across the feedback delay period.
+    Single-layer GRU module, extended by the Monolithic and Dual architectures (Task and Predictive
+    Networks). The GRU's gating mechanism mitigates vanishing gradients and supports the long-term
+    dependencies required by delayed-feedback control. Orthogonal weight initialisation further
+    stabilises training and memory retention across the feedback delay period.
     """
 
     def __init__(
@@ -73,5 +76,5 @@ class MotorRNN(nn.Module):
         return out, h_new
 
     def init_hidden(self, batch_size: int) -> th.Tensor:
-        """Generates a zeroed hidden state tensor for a new reaching trial. The shape is (num_layers, batch_size, hidden_dim) where num_layers=1 in our case."""
+        """Generates a zeroed hidden state tensor for a new reaching trial. Shape is (num_layers, batch_size, hidden_dim), with num_layers=1."""
         return th.zeros(1, batch_size, self.hidden_dim, device=self.device)

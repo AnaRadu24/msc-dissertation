@@ -68,7 +68,6 @@ def plot_hold_dynamics(
     # ---- (c) spatial error ----
     sc = ax_sp.scatter(lateral[:,b], along[:,b], c=t, cmap=_TIME_CMAP, s=9, zorder=3)
     ax_sp.plot(lateral[:,b], along[:,b], color="0.7", lw=0.5, zorder=2)
-    # ax_sp.plot(0, 0, "x", color="red", ms=9, mew=2, zorder=6, label="target")
     if i1 < along.shape[0]:
         ax_sp.plot(lateral[i1,b], along[i1,b], "o", color="red", ms=6, mec="k", mew=0.5, zorder=7, label="t = 1 s")
     _startx(ax_sp, lateral[0,b], along[0,b])

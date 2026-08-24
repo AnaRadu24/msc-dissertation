@@ -42,7 +42,6 @@ def plot_phaseplane_composite(res, *, trial=0, title="") -> Figure:
     x_signed_dist_cm = (traj[:, 0] - tgt[0]) * _M
     y_signed_dist_cm = (traj[:, 1] - tgt[1]) * _M
     _sc(ax, x_signed_dist_cm, y_signed_dist_cm)
-    #ax = axes[0,0]; _sc(ax, traj[:,0]*_M, traj[:,1]*_M)
     ax.plot(0, 0, "x", color="red", ms=8, zorder=6, label="target")
     ax.plot(x_signed_dist_cm[0], y_signed_dist_cm[0], "kx", ms=8, label="start")
     ax.axhline(0,color="0.6",lw=0.6); ax.axvline(0,color="0.6",lw=0.6)

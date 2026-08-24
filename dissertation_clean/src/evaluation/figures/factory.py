@@ -179,6 +179,7 @@ def crescendo_figure(
     (crescendo is a reach-phase measure) under the tremor profile duration."""
     from ..analyzers.tremor import intention_tremor_profile
     from ..engine import rollout
+    from ..engine.types import IDENTITY
     from ..manipulators.delay import delay
     from .crescendo import plot_crescendo
     apply_style()
@@ -186,11 +187,9 @@ def crescendo_figure(
     profile = settings.profile("tremor")
     profiles = {}
     for d in deltas_ms:
-        iv = None if d == 0 else delay(d, mode=mode, base_prop_ms=bp, base_vision_ms=bv)
+        iv = IDENTITY if d == 0 else delay(d, mode=mode, base_prop_ms=bp, base_vision_ms=bv)
         res = rollout(record, paths, task="reach", duration_s=profile.duration_s,
-                      batch_size=profile.batch_size,
-                      intervention=iv if iv else __import__("evaluation.engine.types",
-                                                            fromlist=["IDENTITY"]).IDENTITY,
+                      batch_size=profile.batch_size, intervention=iv,
                       seed=settings.rollout_seed, device=settings.device)
         profiles[f"+{d:g} ms" if d else "intact (Δ=0)"] = intention_tremor_profile(res)
     fig = plot_crescendo(profiles, title=f"Intention-tremor crescendo — {record.label} seed {record.seed}")

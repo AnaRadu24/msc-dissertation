@@ -3,8 +3,10 @@
 Rolls dual seeds out with the Task Net's estimate slot filled from a ladder of sources, sweeps an
 injected delay Δ, and measures terminal error at the trained horizon. Two panels:
 
-  F6a  ladder  — terminal error vs Δ for each source (the phase-lead story)
-  F6b  bars    — a hand-picked set of (source, Δ) contrasts
+  F6a  ladder  — terminal error vs Δ for each source (the phase-lead story), lines labelled
+                 directly at their right-hand ends (no separate legend, so the plot keeps the
+                 full box and the label sits in its line's own colour).
+  F6b  bars    — a hand-picked set of (source, Δ) contrasts.
 """
 from __future__ import annotations
 
@@ -23,23 +25,23 @@ from .style import QUALITATIVE, apply_style, save_figure
 GRID_MS = (0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 130, 150, 170, 200)
 _PROF = DEFAULT.profile("competence")
 _ROLLOUT_KW = {
-    "task": "reach", 
-    "duration_s": _PROF.duration_s, 
-    "batch_size": _PROF.batch_size, 
-    "seed": DEFAULT.rollout_seed
+    "task": "reach",
+    "duration_s": _PROF.duration_s,
+    "batch_size": _PROF.batch_size,
+    "seed": DEFAULT.rollout_seed,
 }
 
-_DELAY_MODE = "additive_both"   
-_BAR_DELTA_C = 50.0             
+_DELAY_MODE = "additive_both"
+_BAR_DELTA_C = 50.0
 
-# ladder sources: key -> (legend label, QUALITATIVE colour index, swept?)
+# ladder sources: key -> (right-edge label, QUALITATIVE colour index, swept?)
 _LADDER_SOURCES = [
-    ("instant_feedback",         "Instant feedback y(t) (perfect estimator)",          0, False),
-    ("delayed_feedback",         "Predictor x̂(y(t−Δ_prop-Δ), u(t)) (trained model)",                        1, True),
-    ("relayed_delayed_feedback", "Delayed feedback y(t−Δ_prop−Δ) (naive relay)",              2, True),
-    ("delayed_estimate",         "Delayed estimate x̂(y(t−Δ_prop−Δ), u(t−Δ)) (stale prediction)",         3, True),
-    ("zero",                     "Zero estimate (severed, OOD floor)",                 4, False),
-    ("constant_predictor_output","Constant x̂ (in-distribution floor)",                 5, False),
+    ("instant_feedback",         "Instant feedback\n(perfect predictor)",                                          0, False),
+    ("delayed_feedback",         "Intact predictor\n(trained, delay in feedback loop)",                            1, True),
+    ("relayed_delayed_feedback", "Relayed feedback\n(no predictor, delay in feedback loop)",                       2, True),
+    ("delayed_estimate",         "Delayed estimate\n(stale prediction, delay predictor→task net)",                 3, True),
+    ("zero",                     "Zero estimate\n(severed, OOD floor)",                                            4, False),
+    ("constant_predictor_output","Constant predictor output\n(frozen, in-distribution)",                           5, False),
 ]
 
 # barplot contrasts: (label, source key, Δ ms). Labels reference _BAR_DELTA_C=50 literally.
@@ -80,13 +82,13 @@ def _iv(source: str, delta_ms: float, rec) -> Intervention:
     env_delay = (IDENTITY if delta_ms == 0 else
                  delay(delta_ms, mode=_DELAY_MODE, base_prop_ms=bp, base_vision_ms=bv))
 
-    if source == "delayed_feedback":                       
-        return env_delay                                   
-    if source == "relayed_delayed_feedback":               
+    if source == "delayed_feedback":
+        return env_delay
+    if source == "relayed_delayed_feedback":
         return _combine(env_delay, substitute("relayed_feedback"))
-    if source == "delayed_estimate":                       
+    if source == "delayed_estimate":
         return _combine(IDENTITY, substitute("delayed_estimate", estimate_delay_ms=delta_ms))
-    if source in _DELTA_INDEPENDENT:                        
+    if source in _DELTA_INDEPENDENT:
         return _combine(IDENTITY, substitute(source))
     raise ValueError(f"unknown ladder source {source!r}")
 
@@ -101,8 +103,7 @@ class _Evaluator:
         key = (source, eff)
         if key not in self._cache:
             vals = []
-            # Explicitly iterate over the true seed numbers
-            for seed in self.group.seeds:
+            for seed in self.group.seeds:                       # true seed numbers
                 rec = self.group.record(seed)
                 err = float(np.nanmean(terminal_error_cm(
                     rollout(rec, self.paths, intervention=_iv(source, eff, rec), **_ROLLOUT_KW))))
@@ -118,45 +119,65 @@ def _mean_sd(vals: np.ndarray):
 
 
 # --- plots ---------------------------------------------------------------------------------------
-def _plot_ladder(ev: _Evaluator, seeds: list[int]):
+def _plot_ladder(ev: _Evaluator, seeds, *, show_zero=False):
+    """Ladder with lines labelled directly at their right ends (no legend).
+    The axes box is shrunk on the right (right=0.60) and that strip is handed to the
+    labels, which live in figure space (clip_on=False) — so the PLOT keeps full height
+    and the long labels sit next to their own coloured line."""
     n_seeds = len(seeds)
-    fig, ax = plt.subplots(figsize=(9, 5.6))
+    fig, ax = plt.subplots(figsize=(12, 6.0))
     x = np.array(GRID_MS, float)
 
     for source, label, _ci, swept in _LADDER_SOURCES:
+        if source == "zero" and not show_zero:
+            continue
         if swept:
             stats = [_mean_sd(ev.terminal(source, d)) for d in GRID_MS]
             mean = np.array([m for m, _ in stats]); sd = np.array([s for _, s in stats])
-        else:                                              
+        else:
             m, s = _mean_sd(ev.terminal(source, 0.0))
             mean = np.full_like(x, m); sd = np.full_like(x, s)
-        ax.plot(x, mean, "o-", color=_colour(source), lw=2, ms=5, label=label)
+        ax.plot(x, mean, "o-", color=_colour(source), lw=2, ms=5)
         ax.fill_between(x, mean - sd, mean + sd, color=_colour(source), alpha=0.15)
 
+    # naive-relay-at-baseline reference line
     rel0, _ = _mean_sd(ev.terminal("relayed_delayed_feedback", 0.0))
     ax.axhline(rel0, ls="--", color=_colour("relayed_delayed_feedback"), lw=1.2, alpha=0.9)
-    
-    ax.text(x[-1], rel0 - 1.5, " naive relay at baseline (Δ=0)", 
-            va="top", ha="right", fontsize=8, color=_colour("relayed_delayed_feedback"))
+    ax.text(x[0], rel0 + 0.8, " naive relay at baseline (Δ=0)",
+            va="bottom", ha="left", fontsize=10.5, color=_colour("relayed_delayed_feedback"))
 
-    ax.set_xlabel("added feedback delay Δ (ms)")
-    ax.set_ylabel("terminal error (cm)")
-    ax.set_title(f"Substitution ladder: the predictor supplies phase lead, (n={n_seeds})")
-    
-    # Place legend at the top, spread across 2 columns so it isn't too tall
-    ax.legend(fontsize=8, loc="upper center", ncol=2, frameon=True)
-    
-    # Add headroom to the y-axis so the legend sits safely above the highest data points
-    bottom, top = ax.get_ylim()
-    ax.set_ylim(bottom, top + 15)
-    
+
+    # ---- direct right-edge labels, vertically de-collided ----
+    x_end = x[-1]
+    ends = []
+    for source, label, _ci, swept in _LADDER_SOURCES:
+        if source == "zero" and not show_zero:
+            continue
+        yend = (ev.terminal(source, GRID_MS[-1]).mean() if swept
+                else ev.terminal(source, 0.0).mean())
+        ends.append([source, label, float(yend)])
+    ends.sort(key=lambda e: e[2])
+    min_gap = 5.0                                    # cm of vertical separation between labels
+    for i in range(1, len(ends)):
+        if ends[i][2] - ends[i - 1][2] < min_gap:
+            ends[i][2] = ends[i - 1][2] + min_gap
+    for source, label, yl in ends:
+        ax.annotate(label, xy=(x_end, yl), xytext=(8, 0), textcoords="offset points",
+                    va="center", ha="left", fontsize=12, color=_colour(source), clip_on=False)
+
+    ax.set_xlabel("added feedback delay Δ (ms)", fontsize=15)
+    ax.set_ylabel("terminal error (cm)", fontsize=15)
+    ax.set_title(f"Substitution ladder: the predictor supplies phase lead (n={n_seeds})", fontsize=18)
     ax.grid(True, alpha=0.3); ax.set_axisbelow(True)
     ax.yaxis.set_major_locator(plt.MultipleLocator(5))
-    fig.tight_layout()
+    ax.set_xlim(x[0], x[-1])
+
+    # shrink axes on the RIGHT to make room for labels; full HEIGHT (no top legend)
+    fig.subplots_adjust(left=0.08, right=0.60, top=0.93, bottom=0.11)
     return fig
 
 
-def _plot_bars(ev: _Evaluator, seeds: list[int]):
+def _plot_bars(ev: _Evaluator, seeds):
     n_seeds = len(seeds)
     labels, colours, means, sds, per_seed = [], [], [], [], []
     for label, source, d in _BARS:
@@ -165,28 +186,23 @@ def _plot_bars(ev: _Evaluator, seeds: list[int]):
         means.append(m); sds.append(s); per_seed.append(vals)
     means, sds = np.array(means), np.array(sds)
 
-    fig, ax = plt.subplots(figsize=(10, 5.4))
+    fig, ax = plt.subplots(figsize=(11, 5.6))
     xp = np.arange(len(labels))
-    
-    # Asymmetric error bars: lower bound clipped at 0 to prevent negative error bars
-    lower_errors = np.minimum(means, sds) # Subtracts SD, but caps at 0
+
+    # asymmetric error bars: clip the lower whisker at 0 (no negative error)
+    lower_errors = np.minimum(means, sds)
     upper_errors = sds
     yerr = [lower_errors, upper_errors]
 
     ax.bar(xp, means, yerr=yerr, color=colours, alpha=0.85, capsize=4, zorder=2)
-    
-    # Extract a colormap to uniquely color each seed
-    cmap = plt.get_cmap("tab10") 
-    
-    # Plot individual seeds consistently across all bars using their true seed numbers
-    for j, seed in enumerate(seeds):
-        # Gather this seed's terminal error across the 8 bars
-        seed_vals = [per_seed[i][j] for i in range(len(labels))]
-        ax.scatter(xp, seed_vals, color=cmap(j % 10), s=35, zorder=3, alpha=0.9, 
-                   edgecolors='black', linewidth=0.5, label=f"Seed {seed}")
 
-    # Add Mean ± SD on top of the bars
-    for i in range(len(labels)):                           
+    cmap = plt.get_cmap("tab10")
+    for j, seed in enumerate(seeds):
+        seed_vals = [per_seed[i][j] for i in range(len(labels))]
+        ax.scatter(xp, seed_vals, color=cmap(j % 10), s=35, zorder=3, alpha=0.9,
+                   edgecolors="black", linewidth=0.5, label=f"Seed {seed}")
+
+    for i in range(len(labels)):
         ax.annotate(f"{means[i]:.1f}±{sds[i]:.1f}", (xp[i], means[i] + sds[i]),
                     textcoords="offset points", xytext=(0, 4),
                     ha="center", va="bottom", fontsize=8, fontweight="bold")
@@ -195,12 +211,12 @@ def _plot_bars(ev: _Evaluator, seeds: list[int]):
     ax.set_ylabel("terminal error (cm)")
     ax.set_title(f"Substitution ladder — key contrasts (mean±SD, per-seed dots, n={n_seeds})")
     ax.grid(True, axis="y", alpha=0.3); ax.set_axisbelow(True)
-    ax.margins(y=0.15) # Leave a bit more room at the top for the text
-    
-    # Legend for the seeds (loc="best" typically places this in the empty top-left space)
-    ax.legend(title="Network Seeds", fontsize=8, loc="best", ncol=2)
+    ax.margins(y=0.15)
 
-    fig.tight_layout()
+    # seed legend OUTSIDE on the right, so it never sits on the bars
+    ax.legend(title="Network seeds", fontsize=8, title_fontsize=8,
+              loc="upper left", bbox_to_anchor=(1.01, 1.0), frameon=True)
+    fig.subplots_adjust(left=0.08, right=0.85, top=0.90, bottom=0.16)
     return fig
 
 
@@ -210,29 +226,28 @@ def _print_contrasts_table(ev: _Evaluator):
     for label, source, d in _BARS:
         vals = ev.terminal(source, d)
         m, s = _mean_sd(vals)
-        clean_label = label.replace('\n', ' ')
-        print(f"{clean_label:<30} | {m:<15.2f} | {s:.2f}")
+        print(f"{label.replace(chr(10), ' '):<30} | {m:<15.2f} | {s:.2f}")
     print("-" * 65 + "\n")
 
 
-def substitution_ladder_figure(cat, paths, *, save=True, show=True, print_table=True):
+def substitution_ladder_figure(cat, paths, *, save=True, show=True,
+                               print_table=True, show_zero=False):
     apply_style()
     group = cat.canonical("dual")
     ev = _Evaluator(group, paths)
-    
-    # Pass the actual list of true seed numbers to the plotting functions
-    ladder = _plot_ladder(ev, group.seeds)
-    bars = _plot_bars(ev, group.seeds)
-    
+
+    ladder = _plot_ladder(ev, group.seeds, show_zero=show_zero)
+    bars = _plot_bars(ev, group.seeds)          # bars KEEP zero — the paired floor comparison
+
     if print_table:
         _print_contrasts_table(ev)
-        
+
     if save:
         d = paths.aggregated_dir("R3", create=True)
-        save_figure(ladder, d / "F6a_substitution_ladder", formats=("png",), close=False)
-        save_figure(bars, d / "F6b_substitution_contrasts", formats=("png",), close=False)
-    
+        save_figure(ladder, d / "F6a_substitution_ladder", formats=("png", "pdf"), close=False)
+        save_figure(bars,   d / "F6b_substitution_contrasts", formats=("png", "pdf"), close=False)
+
     if show:
         plt.show()
-        
+
     return ladder, bars, ev

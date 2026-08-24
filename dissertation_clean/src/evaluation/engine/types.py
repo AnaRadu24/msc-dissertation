@@ -8,7 +8,7 @@ Two objects flow through the whole pipeline:
                   object replaces the old scatter of six keyword hooks.
 
 Keeping these torch-free means analysers/figures can import them without pulling in
-torch, and you can read this file alone to understand what moves through the system.
+torch, and this file alone is enough to understand what moves through the system.
 """
 from __future__ import annotations
 

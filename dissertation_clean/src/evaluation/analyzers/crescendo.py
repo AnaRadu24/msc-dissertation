@@ -1,7 +1,7 @@
 """Reach-phase intention-tremor crescendo analysers — PURE numpy. Deceleration-phase amplitude.
 
 Intention tremor is defined as lateral-oscillation amplitude GROWING during the DECELERATION phase
-(peak velocity -> target arrival). We bin by TIME within that phase, NOT by distance-to-target,
+(peak velocity -> target arrival). Binning is by TIME within that phase, NOT by distance-to-target,
 because a tremulous reach overshoots/undershoots — the same distance is visited many times, so
 distance bins conflate different moments. Time is monotonic through deceleration, so it is the correct
 axis and it matches the clinical definition (growth on final approach).
@@ -80,37 +80,3 @@ def deceleration_crescendo(trajectories, targets, dt, *, n_bins=6, window_ms=150
             growth[b] = amp[-1, b] / amp[0, b]
     return {"time_norm": centers, "amp_by_bin_cm": amp, "growth_ratio": growth,
             "i_peak": i_peaks, "i_hold": i_holds}
-
-def deceleration_crescendo_old(trajectories, targets, dt, *, n_bins=6, window_ms=150.0,
-                           arrival_cm=1.0):
-    """Lateral swing amplitude across the DECELERATION phase (peak-velocity -> first arrival), binned
-    by normalised time (0=peak vel, 1=arrival). Per trial:
-        amp_by_bin [n_bins, B]  peak-to-peak lateral swing (cm) in each time-bin of deceleration
-        growth_ratio [B]        amp(last bin) / amp(first bin) — clinical 'amplitude grows on approach'
-    Returns bin centres (normalised time) too. Overshoot-robust (time axis is monotonic)."""
-    traj = np.asarray(trajectories, float); targets = np.asarray(targets, float)
-    T, B = traj.shape[0], traj.shape[1]
-    lateral = _lateral_cm(traj, targets)
-    r_cm = np.linalg.norm(traj - targets[None], axis=-1) * 100.0
-    speed = np.concatenate([np.zeros((1, B)),
-                            np.linalg.norm(np.diff(traj, axis=0), axis=-1) / dt], axis=0) * 100.0
-    win = max(1, int(round(window_ms / (dt * 1000.0))))
-    centers = (np.arange(n_bins) + 0.5) / n_bins
-    amp = np.full((n_bins, B), np.nan)
-    growth = np.full(B, np.nan)
-
-    for b in range(B):
-        i_peak = int(np.argmax(speed[:, b]))                      # peak velocity
-        below = np.where(r_cm[i_peak:, b] < arrival_cm)[0]
-        i_arr = (i_peak + int(below[0])) if below.size else int(np.argmin(r_cm[:, b]))
-        if i_arr - i_peak < n_bins:                               # too short to bin
-            continue
-        idx = np.linspace(i_peak, i_arr, n_bins + 1).astype(int)
-        for k in range(n_bins):
-            lo, hi = idx[k], max(idx[k] + win, idx[k + 1])
-            seg = lateral[lo:min(hi, T), b]
-            if seg.size >= 2:
-                amp[k, b] = seg.max() - seg.min()
-        if np.isfinite(amp[0, b]) and np.isfinite(amp[-1, b]) and amp[0, b] > 1e-6:
-            growth[b] = amp[-1, b] / amp[0, b]
-    return {"time_norm": centers, "amp_by_bin_cm": amp, "growth_ratio": growth}

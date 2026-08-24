@@ -5,7 +5,7 @@ import os
 
 @dataclass 
 class ExperimentConfig:
-    """Defines the parameters for a specific experiental run."""
+    """Defines the parameters for a specific experimental run."""
     # Architectural flags
     architecture: str                   # 'mono' or 'dual'
     hidden_units: int = 64              # number of hidden units in the network e.g., 32 or 64
@@ -23,7 +23,7 @@ class ExperimentConfig:
     context_provided: bool = False  # whether the context (task type) is provided to the network or not
     
     # Structural Routing Flags
-    task_receives_feedback: bool = False  # overriden at runtime for the monolitchic network 
+    task_receives_feedback: bool = False  # overridden at runtime for the monolithic network
     predictive_receives_feedback: bool = True
 
     # Physiological parameters

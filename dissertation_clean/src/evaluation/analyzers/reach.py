@@ -37,8 +37,8 @@ def terminal_error_cm(res: RolloutResult) -> np.ndarray:
 
     Under the 'competence' profile the final timestep IS the trained horizon, so this is the
     reach-and-hold error the model was trained to minimise — in-distribution, zero free
-    parameters. (If you pass a longer rollout this becomes end-of-6s error, which is drift,
-    not accuracy — so only read this off a competence-profile rollout.)
+    parameters. (A longer rollout would instead give end-of-6s error, which is drift, not
+    accuracy — so this should only be read off a competence-profile rollout.)
     """
     return _distance_to_target_cm(res)[-1]
 

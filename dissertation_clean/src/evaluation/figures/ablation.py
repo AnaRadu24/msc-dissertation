@@ -18,9 +18,11 @@ Figures produced
 3. ``fig_R1_config_ablation_grid``  — (optional / appendix) the full 4-condition ×
    3-config grid for terminal error and hold-RMS.
 
-Layering rule: this file imports only numpy, matplotlib and ``.style``. Anything that
-touches a model or the environment lives upstream (engine + analysers); the metrics
-arrive here as plain arrays.
+Layering rule: the figure functions above import only numpy, matplotlib and ``.style``;
+metrics arrive as plain arrays computed upstream (engine + analysers). The exception is
+``build_deviation`` at the bottom of this module, which rolls models out directly — it is
+the orchestration counterpart of ``deviation_timecourse_figure`` (ablation_deviation.py)
+and is kept alongside it rather than in orchestrate.py.
 """
 from __future__ import annotations
 
@@ -48,8 +50,8 @@ __all__ = [
 ]
 
 # ---------------------------------------------------------------------------
-# Semantic colours. Defaults chosen to match the attached figures; point any of
-# these at a style.QUALITATIVE entry if you prefer the house categorical palette.
+# Semantic colours. Defaults chosen to match the reference figures; point any of
+# these at a style.QUALITATIVE entry to use the house categorical palette instead.
 # The freeze-channel roles keep proprioception "warm" and vision "cool/green"
 # consistently across every panel, so the reader learns the mapping once.
 # ---------------------------------------------------------------------------
@@ -364,13 +366,15 @@ def ablation_figures(*, cascade: Optional[AblationCascade] = None,
         plt.show()
     return figs
 
-# orchestrate.py — deviation-from-intact time course. Reuses the intact rollout per model.
-import numpy as np
 
+# ===========================================================================
+# Orchestration counterpart of ``deviation_timecourse_figure`` — reuses the
+# intact rollout per model. See the layering-rule note at the top of this file.
+# ===========================================================================
 from ..engine import obs_layout, rollout
 from ..engine.types import IDENTITY
-from .ablation_deviation import DeviationSeries
 from ..manipulators.ablation import ablate
+from .ablation_deviation import DeviationSeries
 
 _KW = dict(task="reach", duration_s=1.0, batch_size=256, seed=42)   # same targets across intact/frozen
 _M_TO_CM = 100.0

@@ -21,7 +21,6 @@ from typing import Dict, Optional
 import numpy as np
 
 from ..engine.types import RolloutResult
-from .oscillation import _signed_error_coords
 
 _M_TO_CM = 100.0
 
@@ -71,7 +70,6 @@ def intention_tremor_profile(
     Returns per-trial arrays:
         bin_centers_cm [nbins], rms_by_bin_cm [nbins,B], intention_index [B] (>1 = crescendo).
     """
-    import numpy as np
     traj = np.asarray(trajectories, dtype=float)      # [T+1, B, 2] m
     targets = np.asarray(targets, dtype=float)        # [B, 2] m
 
@@ -121,17 +119,5 @@ def intention_tremor_profile(
 def tremor_metrics(res: RolloutResult, **kw) -> Dict[str, np.ndarray]:
     """Per-trial tremor battery for the atom: just the scalar intention index (the profile
     curve is a figure input, not a stored scalar)."""
-    return {"intention_index": intention_tremor_profile(res, **kw)["intention_index"]}
-
-def _detrend_highpass(x, dt, cutoff_hz=0.5):
-    """High-pass residual [T,B] -> [T,B]: removes the slow approach trend, keeps the tremor band.
-    A Savitzky-Golay smoother can eat a slow ~0.8 Hz oscillation as 'trend'; a Butterworth high-pass
-    at cutoff_hz preserves anything above it. Falls back to mean-removal if too short to filter."""
-    import numpy as np
-    from scipy.signal import butter, filtfilt
-    T = x.shape[0]
-    nyq = 0.5 / dt
-    if cutoff_hz >= nyq or T < 12:
-        return x - x.mean(axis=0, keepdims=True)
-    b, a = butter(2, cutoff_hz / nyq, btype="high")
-    return filtfilt(b, a, x, axis=0)
+    profile = intention_tremor_profile(res.trajectories, res.targets, res.dt, **kw)
+    return {"intention_index": profile["intention_index"]}

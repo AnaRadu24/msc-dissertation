@@ -1,5 +1,5 @@
 """F10 — reach-phase intention-tremor crescendo. PURE matplotlib. Two panels:
-(A) 'you can see it': lateral error vs normalised deceleration time, mean±SD across trials, one line
+(A) qualitative: lateral error vs normalised deceleration time, mean±SD across trials, one line
     per scenario — the swing widening on approach for the destabilising manipulations.
 (B) quantified: peak-to-peak amplitude vs deceleration-phase bin, mean±SD across seeds, per scenario,
     with the growth ratio annotated.

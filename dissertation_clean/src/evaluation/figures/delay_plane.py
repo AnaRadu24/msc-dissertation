@@ -7,8 +7,8 @@ is annotated with its value. Runnable for dual and mono to ask whether the toler
 asymmetry is architecture-specific or a shared property of the plant/task.
 
 The hold-instability contour is OFF by default (it conflated the message): this figure
-is a pure accuracy landscape. If you want the stability boundary back, pass a
-holdrms grid and draw_contour=True.
+is a pure accuracy landscape. To restore the stability boundary, pass a holdrms grid
+and draw_contour=True.
 
 Selected cells (``marks``) are ringed so a heat cell ties to its trajectory / phase-plane
 composite — rendered by the driver, which reuses hold_dynamics.plot_reach_2d_by_time and
@@ -40,7 +40,7 @@ class DelayPlane:
     ``terminal_cm``               : (P, V) across-seed MEAN terminal error, cm [prop=rows].
     ``terminal_cm_per_seed``      : (P, V, n_seeds) raw per-seed values, kept so panel cells
                                     can be checked for representativeness. Optional.
-    ``holdrms_cms``               : (P, V) hold-RMS, cm/s — only needed if you re-enable the
+    ``holdrms_cms``               : (P, V) hold-RMS, cm/s — only needed to re-enable the
                                     instability contour. Optional (default off).
     ``n_seeds``                   : number of seeds averaged (for the title).
     ``marks``                     : [(prop_ms, vision_ms, label), ...] cells with panels.

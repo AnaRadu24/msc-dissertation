@@ -55,10 +55,11 @@ class CentreOutReach(mn.environment.Environment):
         # Feedback delays. Config delays are in MILLISECONDS; internally they are integer numbers
         # of timesteps (buffer lengths). MotorNet expects the delay in SECONDS and does
         # int(delay/dt) with a float-fragile "integer multiple" check that rejects some exact
-        # multiples (e.g. 0.14/0.01 = 14.0000000000000018 > its 1e-15 tolerance). So we compute the
-        # step counts ourselves, pass a safe 1-step delay through MotorNet's check, then set the true
-        # delays and buffer lengths directly. (Historically the ms values were passed raw as
-        # "seconds" -> 500-step delay >> episode -> the buffer never shifted -> feedback FROZEN at t=0.)
+        # multiples (e.g. 0.14/0.01 = 14.0000000000000018 > its 1e-15 tolerance). The step counts
+        # are therefore computed directly, a safe 1-step delay is passed through MotorNet's check,
+        # and the true delays and buffer lengths are set afterward. (Historically the ms values
+        # were passed raw as "seconds" -> 500-step delay >> episode -> the buffer never shifted ->
+        # feedback FROZEN at t=0.)
         dt = effector.dt
         prop_steps = int(round(self.config.proprioception_delay / (dt * 1000.0)))
         vision_steps = int(round(self.config.vision_delay / (dt * 1000.0)))
@@ -85,7 +86,7 @@ class CentreOutReach(mn.environment.Environment):
         self.vision_noise = [float(self.config.vision_noise)]
 
         # Descending (efferent) motor delay: buffer the command before it reaches the plant. MotorNet
-        # exposes only sensory delays, so we implement this ourselves in step(); off when 0 ms.
+        # exposes only sensory delays, so this is implemented separately in step(); off when 0 ms.
         self._action_delay_steps = int(round(float(getattr(self.config, "action_delay", 0.0)) / (dt * 1000.0)))
         self._action_buffer = []
 
@@ -156,14 +157,13 @@ class CentreOutReach(mn.environment.Environment):
 
 class CentreOutReachFixedPosture(CentreOutReach):
     """
-    Contstrained version of the CentreOutReach task where the arm always starts from a fixed central posture (Shoulder 45°, Elbow 90°) rather than a randomised starting position. This mirrors standard primate electrophysiology paradigms where the monkey's arm is typically restrained in a fixed starting posture at the beginning of each trial. The network must learn to reach out to the targets from this consistent starting configuration, which may facilitate learning by reducing variability in the initial conditions.
+    Constrained version of the CentreOutReach task where the arm always starts from a fixed central posture (Shoulder 45°, Elbow 90°) rather than a randomised starting position. This mirrors standard primate electrophysiology paradigms where the monkey's arm is typically restrained in a fixed starting posture at the beginning of each trial. The network must learn to reach out to the targets from this consistent starting configuration, which may facilitate learning by reducing variability in the initial conditions.
     """
     
     # __init__ is implicitly inherited from CentreOutReach
     # step() is implicitly inherited from CentreOutReach
 
     def reset(self, *args, **kwargs):
-        # print("\n Executing reset with fixed starting posture: Shoulder 45°, Elbow 90°")
         batch_size = kwargs.get("options", {}).get("batch_size", 1)
         
         shoulder_angle = math.pi / 4
@@ -175,18 +175,18 @@ class CentreOutReachFixedPosture(CentreOutReach):
         kwargs["options"]["joint_state"] = fixed_posture
         self.effector.joint_state = fixed_posture
 
-        # passing the modified kwargs up to the parent class (CentreOutReach) to handle the rest of the reset logic, including target generation
+        # pass the modified kwargs up to CentreOutReach to handle the rest of the reset logic, including target generation
         return super().reset(*args, **kwargs)
 
 class CentreOutReachCurlField(CentreOutReachFixedPosture):
     """
-    Similar ``CentreOutReachFixedPosture`` reaching task applying a velocity-dependent curl force field to the fingertip. Mirrors the perturbation paradigms used in primate electrophysiology (e.g., Perich et al., 2018).
+    ``CentreOutReachFixedPosture`` with a velocity-dependent curl force field applied to the fingertip. Mirrors the perturbation paradigms used in primate electrophysiology (e.g., Perich et al., 2018).
 
     The curl coefficient is sampled PER TRIAL at reset (held constant within the trial) so direction (clockwise / counter-clockwise) and magnitude can be randomised:
 
     * ``config.curl_randomise_sign``  — flip CW/CCW with p=0.5 per trial for forcing closed-loop control: with both signs present in one batch there is
       no fixed feedforward correction, so the network should READ the feedback to tell which field it is in.
-    * ``config.curl_magnitude_jitter`` — fractional spread on |b|: b ~ curl_viscosity * U(1 - jitter, 1 + jitter). Modest jitter removes the magnitude predictability. This turns the ``curl_viscosity`` scalar into the centre of a distribution rather than a fixed value; with sign randomisation the field's expectation is zero, so ``curl_viscosity`` now sets the typical magnitude, not a fixed bias (hopefully).
+    * ``config.curl_magnitude_jitter`` — fractional spread on |b|: b ~ curl_viscosity * U(1 - jitter, 1 + jitter). Modest jitter removes the magnitude predictability. This turns the ``curl_viscosity`` scalar into the centre of a distribution rather than a fixed value; with sign randomisation the field's expectation is zero, so ``curl_viscosity`` sets the typical magnitude rather than a fixed bias.
     """
 
     def reset(self, *args, **kwargs):
